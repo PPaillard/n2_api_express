@@ -1,42 +1,100 @@
 const express = require("express");
 const app = express();
 
-const users = [
-  { id: 1, nom: "Alice", age: 25, hobbies: ["lecture", "randonnee"] },
-  { id: 2, nom: "Bob", age: 30, hobbies: ["jeuxvideo", "cuisine"] },
-  { id: 3, nom: "Charlie", age: 22, hobbies: ["musique", "voyages"] },
-  { id: 4, nom: "Diana", age: 28, hobbies: ["yoga", "dessin"] },
-  { id: 5, nom: "Ethan", age: 35, hobbies: ["peche", "bricolage"] },
-  { id: 6, nom: "Fiona", age: 27, hobbies: ["danse", "lecture"] },
-  { id: 7, nom: "George", age: 29, hobbies: ["natation", "musique"] },
-  { id: 8, nom: "Hannah", age: 24, hobbies: ["photographie", "voyages"] },
-  { id: 9, nom: "Ian", age: 33, hobbies: ["escalade", "randonnee"] },
-  { id: 10, nom: "Jasmine", age: 21, hobbies: ["dessin", "yoga"] },
-  { id: 11, nom: "Kevin", age: 31, hobbies: ["cuisine", "basket"] },
-  { id: 12, nom: "Liam", age: 26, hobbies: ["lecture", "escalade"] },
-  { id: 13, nom: "Mia", age: 23, hobbies: ["danse", "voyages"] },
-  { id: 14, nom: "Noah", age: 34, hobbies: ["peche", "natation"] },
-  { id: 15, nom: "Olivia", age: 29, hobbies: ["jeuxvideo", "photographie"] },
-];
+const connection = require("./database");
 
-app.get("/", (req, res) => {
-  console.info("I got a ", req);
-  res.send("Hello ! ");
+// on explique a express qu'il va pouvoir recevoir du JSON et le converti en objet
+app.use(express.json());
+
+app.get("/api/articles", (req, res) => {
+  connection
+    .query("SELECT * FROM user")
+    .then(([articles]) => {
+      res.send(articles);
+    })
+    .catch((err) => {
+      console.error(err);
+      res.sendStatus(500);
+    });
 });
 
-app.get("/users", (req, res) => {
-  const limit = parseInt(req.query.limit) || 10;
-
-  const limitedUsers = users.slice(0, limit);
-  res.json(limitedUsers);
+app.get("/api/articles/:id", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  connection
+    .query("SELECT * FROM user WHERE id=?", [id])
+    .then(([articles]) => {
+      if (articles[0] == null) {
+        res.sendStatus(404);
+      } else {
+        res.send(articles[0]);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      res.sendStatus(500);
+    });
 });
 
-app.get("/users/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  const user = users.find((user) => user.id === id);
+app.post("/api/articles", (req, res) => {
+  const article = req.body;
 
-  if (user) res.json(user);
-  else res.sendStatus(404);
+  console.log(res.body.title);
+
+  // TODO validations (length, format...)
+
+  article.id = parseInt(req.params.id, 10);
+
+  connection
+    .query("INSERT INTO article (title, content) VALUES (?, ?)", [
+      article.title,
+      article.content,
+    ])
+    .then(([result]) => {
+      res.location(`/api/articles/${result.insertId}`).sendStatus(201);
+    })
+    .catch((err) => {
+      console.error(err);
+      res.sendStatus(500);
+    });
+});
+
+app.put("/api/articles/:id", (req, res) => {
+  const article = req.body;
+
+  // TODO validations (length, format...)
+
+  article.id = parseInt(req.params.id, 10);
+
+  connection
+    .query("UPDATE article SET ? WHERE id = ?", [article, article.id])
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        res.sendStatus(404);
+      } else {
+        res.sendStatus(204);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      res.sendStatus(500);
+    });
+});
+
+app.delete("/api/articles/:id", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  connection
+    .query("delete from article where id = ?", [id])
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        res.sendStatus(404);
+      } else {
+        res.sendStatus(204);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      res.sendStatus(500);
+    });
 });
 
 const serverPort = 3310;
